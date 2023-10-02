@@ -224,8 +224,8 @@ for (i in 1:ncol(Raw_Force)) {
 The red line represents the utilization of 300 basis functions, each controlled by the optimal smoothing parameter lambda=0.0001, to effectively smooth the force curves. 
 
 
-#creating the force fd-object class to be us3d for further analysis
-```{r}
+#creating the force fd-object class to be used for further analysis
+```{r,include=FALSE}
 # Creating an empty matrix to store the fd coefficients 
 coefs <- matrix(data = NA, nrow = 300, ncol = 34)
 
@@ -244,7 +244,7 @@ colnames(coefs) <- colnames(Raw_Force)
 ```
 
 
-```{r}
+```{r,include=FALSE}
 # Create vectors for time, repetitions, and values
 time <- c(1:300)
 reps <- colnames(Raw_Force)
@@ -360,8 +360,8 @@ In this FDA clustering algorithm, we facilitate the grouping of curves based on 
 caps<-compare_caps(x=T_R,y=Force_fd,n_clusters=1:6, clustering_method="kmeans", warping_class ="none",centroid_type = "mean",cluster_on_phase = FALSE)
 ```
 
-#Plot the within sum of squares
-```{r}
+#Plotting the within sum of squares for selecting the no of clusters
+```{r,include=FALSE}
 plot(
   caps,
   validation_criterion = c("wss", "silhouette"),
@@ -395,7 +395,7 @@ plot(N.Kmeans.amp_cluster2, type = 'amplitude')
 ## Standard K-Means Clustering on FPC scores
 In this second clustering strategy we extract the FPC scores and apply the standard K-means 
 #pc scores 
-```{r}
+```{r,include=FALSE}
 # Extract the scores from the 'force.pcalist' object
 scores <- force.pcalist$scores
 
@@ -524,9 +524,8 @@ ggplot(data = Force.mean.dat, aes(x = x, y = group_1)) +
 ```
 
 ## Functional t.test
-```{r}
+```{r,include=FALSE}
 tres = tperm.fd(group1.fd,group2.fd, nperm = 200, q = 0.05) 
 
 ```
-
-#
+There is a difference evident across the majority of locations.This differences can be seen at the crouch phase(time: 0.18 - 0.38), Ascent phase(time: 0.42 - 0.7), and Peak force(time: 0.84 - 0.92) .
