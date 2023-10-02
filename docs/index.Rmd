@@ -1,0 +1,532 @@
+---
+title: "Evaluating Variations in Countermovement Jump Performance among Rugby Players"
+Author: Egwuekwe Odinakachukwu
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r,include=FALSE}
+# Loading Libraries
+library(imputeTS)
+library(readr)
+library(ggplot2)
+library(fda)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+## Brief overview on Functional Data analysis
+A functional curve denoted by $x(t)$ can be expressed by the equation:
+
+$y_{j}= x(t_{j}) + e_{j}$
+
+where $y_j$ is the raw data (typically measured with noise), $x(t_{j})$ is the smooth signal, $e_{j}$ is the noise and with $t$ in a continuum (usually time). We employ a technique known as basis function expansion to perform smoothing and noise removal and estimate the function $x(t)$. This approach involves representing $x(t)$ as a linear combination of basis functions, denoted by $\theta_{k}(t)$.
+
+$x(t)= \sum_{k=1}^{K} \vartheta_{k}\theta_{k}(t)$.
+
+The objective is to find the basis coefficients, $\vartheta_{k}$ that weight each basis function appropriately to reconstruct the underlying function $x(t)$ from the given data. These coefficients are crucial as they dictate the contributions of each basis function to the overall representation of $x(t)$. By adjusting the $\vartheta_{k}$ values, the basis functions can be scaled, shifted, or combined to fit the observed data points best and smooth out any noise or irregularities in the data.
+A crucial consideration is selecting the appropriate expansion order, denoted as $T$. A larger value of $T$ generally leads to a better fit to the data, allowing for greater flexibility in capturing complex patterns. However, a trade-off exists, as a larger $T$ also increases the risk of over-fitting. On the other hand, if $T$ is chosen to be too small, the model might fail to capture important aspects of the smooth function $T$ that we are trying to estimate. In this case, we tend to consider smaller values of $T$ for the expansion to reduce variance in the model. 
+Hence, to address this trade-off, we employ the Penalised Residual Sum of Squares (PENSSE); a Smoothing with a roughness penalty approach for finding the appropriate balance for the value of $T$ essential in obtaining a reliable and accurate estimation of the smooth function. Mathematically we can express the PENSSE as: 
+
+$PENSSE =\sum_{j=1}^{n} [ y_j - x(t_j) ]^2 + \lambda \int_{T} [ D^2x(t) ]^2 dt$ 
+        $= \sum_{j=1}^{n} [ y_j - \sum_{k=1}^{T} \vartheta_k \theta_k(t_j) ]^2 +\lambda \int_{T} [ D^2x(t) ]^2 dt$ 
+        $= |y - \theta \vartheta|^2 + \lambda | D^2x(t) |^2$
+        $= |y - \theta \vartheta|^2 + \lambda PEN_2(x)$
+
+
+hence $\hat{\vartheta}$ the estimated coefficient vector will be
+
+$\hat{\vartheta}=(\theta^{'} \theta + \lambda R)^{-1} \theta^{'} y$.
+
+
+$|y - \theta \vartheta|^2$ is the fit to the data measured as the residual sum of squares, $PEN_2(x)$ is the variability of the function $X(t)$ that measures its roughness, and $\lambda$ serves as a smoothing parameter, determining the balance between fitting the data and controlling the variability of the function $x(t)$. The value of $\lambda$ influences the extent to which the estimation adjusts to the data points, and a higher $\lambda$ will prioritise smoother functions, while a lower $\lambda$ may result in a fit that closely matches the data points even if it leads to more variability in the estimation. The choice of $\lambda$ is crucial in finding the right balance between fitting the data and obtaining a function that generalises well to new observations.
+
+A popular measure for choosing the optimum $\lambda$ is through the generalised cross-validation measure (GCV) given as:
+
+$GCV(\lambda)=(\frac{n}{n-df(\lambda)})(\frac{SSE}{n-df(\lambda)})$,
+
+where
+
+$df(\lambda) = tr[\underline{H}]=tr[\underline{\theta}(\underline{\theta}^{'}\underline{\theta} + \lambda\underline{R})^{-1}\underline{\theta}^{'}]$
+
+is the trace of the smoothing matrix.
+
+To determine the optimal value of the smoothing parameter $\lambda$ that minimises the GCV criterion, a model is fitted for a range of  $\lambda$ values specified on a logarithmic scale and for each fitted model, the corresponding GCV value is calculated. The goal is to find the  $\lambda$ value that yields the smallest GCV value, indicating the best trade-off between fitting the data and controlling the model's complexity.
+
+To accomplish this, the GCV values are plotted against the corresponding values of  $\lambda$. The optimal  $\lambda$ is then identified as the point on the plot where the GCV reaches its minimum.
+
+
+
+```{r,include=FALSE}
+# Loading the data
+Raw_Force<-read.csv("Raw_Force.csv")
+
+```
+
+
+#Force Curve of the 34 Subjects without Alignment 
+```{r, include=FALSE}
+Raw_F<-read.csv("Raw_Force.csv")
+Raw_F$SN<-c(1:553)
+
+# Reshape the data 
+Raw_F_long <- Raw_F%>%
+  pivot_longer(cols = -SN, names_to = "Column", values_to = "Value")
+
+# Plot the data
+ggplot(Raw_F_long, aes(x = SN, y = Value, color = Column)) +
+  geom_line() +
+  ggtitle("Force Profiles") +
+  xlab("Time") +
+  ylab("Force") +
+  theme_minimal()
+```
+
+The plot displays the force profiles of 34 subjects, revealing their jump patterns. Notably, there are noticeable variations in the later phases of the jumps. To facilitate a meaningful comparison of the curves and mitigate the influence of these end-phase variations, we employ linear time normalization, effectively standardizing the time range to (0, 1) before smoothing.
+
+## Choosing lambda the optimal smoothing parameter
+Firstly we extract and analyse the force profile of one subject in order to obtain the optimal smoothing parameter $\lambda$.
+```{r,include=FALSE}
+
+# Define the order of the B-spline basis
+norder <- 4
+
+# Remove missing values from the s0103 column in the Raw_Force dataframe and extract time
+s1 <- na.omit(Raw_Force$s0103)
+time <- time(s1)
+
+# Calculate the minimum and maximum values of the time vector
+Min <- min(time)
+Max <- max(time)
+
+# Linear time normalization function
+time_norm <- function(x) {
+  norm_x <- matrix()
+  for (i in 1:length(x)) {
+    # Apply linear time normalization
+    norm_x <- (x - Min) / (Max - Min)
+    return(norm_x)
+  }
+}
+
+# Form the matrix of time and Variable
+DF <- cbind(time, s1)
+
+# Apply linear time normalization to the time column
+DF[, 1] <- time_norm(DF[, 1])
+
+# Create a B-spline basis with specific parameters
+force_basis <- create.bspline.basis(c(0, 1), norder = norder, nbasis = 300)
+
+# Define a sequence of lambda values for the GCV search
+loglam <- seq(-6, 0, 0.25)
+
+# Initialize vectors to store GCV and degrees of freedom (DF) values
+Gcvsave <- rep(NA, length(loglam))
+names(Gcvsave) <- loglam
+Dfsave <- Gcvsave
+
+# Loop through different lambda values and calculate GCV and DF
+for (i in 1:length(loglam)) {
+  # Define a new penalty based on the current lambda value
+  hgtfdPari <- fdPar(force_basis, 2, 10^loglam[i])
+  
+  # Smooth the data with the updated penalty
+  hgtSm.i <- smooth.basis(DF[, 1], DF[, 2], hgtfdPari)
+  
+  # Store GCV and DF values
+  Gcvsave[i] <- sum(hgtSm.i$gcv)
+  Dfsave[i] <- hgtSm.i$df
+}
+
+# Plot GCV values against the logarithm of lambda
+plot(loglam, Gcvsave, 'o', las = 1, xlab = expression(log[10](lambda)),
+     ylab = expression(GCV(lambda)), lwd = 2 )
+
+```
+
+Using the optimal smoothing parameter(point at which the curve reaches its minimum) $\lambda$=0.0001 we normalize and smooth the entire 34 curves to extract the 300 basis coefficients for further analysis
+
+# Smoothing using B-splines
+```{r}
+
+# Initialize a list to store the coefficients
+coeff_list <- list()
+
+# Initialize a list to store the smoothed functional data objects
+force.fd <- list()
+
+# Loop through columns of Raw_Force
+for (i in 1:ncol(Raw_Force)) {
+  
+  # Remove missing values from the current column
+  s1 <- na.omit(Raw_Force[, i])
+  
+  # Extract and normalize the time values
+  time <- as.numeric(time(s1))
+  Min <- min(time)
+  Max <- max(time)
+  
+  # Linear time normalization function
+  time_norm <- function(x) {
+    norm_x <- matrix()
+    for (i in 1:length(x)) {
+      norm_x <- (x - Min) / (Max - Min)
+      return(norm_x)
+    }
+  }
+  
+  # Combine time and variable into a matrix
+  DF <- cbind(time, s1)
+  
+  # Apply linear time normalization to the time column
+  DF[, 1] <- time_norm(DF[, 1])
+  
+  # Define the time range for the basis
+  TimeRng <- c(0, 1)
+  
+  # Set up the B-spline basis
+  force_basis <- create.bspline.basis(c(0, 1), norder = 4, nbasis = 300)
+  
+  # Set up the penalty object penalizing the 2nd derivative and initially set lambda = 0.0001
+  force_fdPar = fdPar(fdobj = force_basis, Lfdobj = 2, lambda = 0.0001)
+  
+  # Smooth the data using the penalty object
+  force.pen.smooth = smooth.basis(argvals = DF[, 1], y = DF[, 2], fdParobj = force_fdPar)
+  
+  # Create a new data frame for the coefficients and assign the values
+  coeff_df <- data.frame(t(force.pen.smooth$fd[["coefs"]]))
+  
+  # Store the smoothed functional data object in the force.fd list
+  force.fd[[i]] <- force.pen.smooth$fd
+  
+  # Add the data frame to the coeff_list
+  coeff_list[[i]] <- coeff_df
+  
+  # Plot the smooth curve
+  plot(DF[, 1], DF[, 2], type = 'p', lwd = 0.00005, xlab = 'Time', ylab = 'Force',
+       main = paste0(colnames(Raw_Force[i])))
+  lines(force.pen.smooth$fd, col = 'red')
+}
+
+
+```
+
+The red line represents the utilization of 300 basis functions, each controlled by the optimal smoothing parameter lambda=0.0001, to effectively smooth the force curves. 
+
+
+#creating the force fd-object class to be us3d for further analysis
+```{r}
+# Creating an empty matrix to store the fd coefficients 
+coefs <- matrix(data = NA, nrow = 300, ncol = 34)
+
+# Loop through each element in the force.fd list
+for (i in 1:length(force.fd)) {
+  # Extract and store the coefficients in the 'coefs' matrix
+  coefs[, i] <- force.fd[[i]][["coefs"]]
+}
+
+# Set row names of 'coefs' matrix to match those of the first set of coefficients
+row.names(coefs) <- row.names(force.fd[[1]][["coefs"]])
+
+# Set column names of 'coefs' matrix to match the column names of Raw_Force
+colnames(coefs) <- colnames(Raw_Force)
+
+```
+
+
+```{r}
+# Create vectors for time, repetitions, and values
+time <- c(1:300)
+reps <- colnames(Raw_Force)
+values <- c('value')
+
+# Create a list for fdnames
+fdname <- list('time' = time, 'reps' = reps, 'values' = values)
+
+```
+
+# Force Curves after Alignment and smoothing
+```{r}
+# Create a functional data object (FD) using the coefficients, basis, and fdnames
+Force_fd <- fd(coefs, force_basis, fdnames = fdname)
+
+# Check the class of the resulting FD
+class(Force_fd)
+
+# Plot the smooth curves using the created FD
+plot(Force_fd, xlab = 'time', ylab = 'force', main = 'Smooth curves')
+
+```
+By aligning and smoothing the force curves, we effectively eliminate noise, eliminate the phase variation at the end of the curve  and enhance the clarity of the data.
+
+
+## Functional PCA
+We employ FPCA as a means of dimension reduction and as well examine the different jump variations among the force data
+```{r}
+
+force.pcalist = pca.fd(Force_fd,4,harmfdPar=fdPar(Force_fd))
+plot(force.pcalist)
+```
+
+
+#Cumulative proportion of variability explained by the Pcs
+```{r,include=FALSE}
+
+cum.propvar<-cumsum(force.pcalist$varprop)
+data.frame(1:4,cum.propvar)
+
+```
+
+
+Result interpretation:
+
+The functional principal components were calculated for the resulting smoothed force curves, and four functional principal components were utilised as they accounted for 93% of the total variability. The first, second, third, and fourth functional principal components accounted for $54.5, 20.7,  11.2,\& 6.2$ percent of the total variability, respectively. The above plots display the average curve and two additional curves obtained by adding (indicated by a plus sign) and subtracting (indicated by a minus sign) a multiple of the functional principal component from the mean curve.
+
+In the first principal component, subjects who scored positively started their jump with a force above average but had a force below average during the ascent phase and a late peak force above average. This means that these individuals have a powerful and explosive initial push-off at the beginning of the vertical jump, setting a strong foundation for their upward movement but didn't maintain the same level of force during the upward movement resulting in a slightly reduced force compared to the average of all subjects during this phase. Furthermore, these individuals had a delayed peak force slightly above average, reaching their maximum force output later in their vertical jump compared to the average of all subjects.
+
+In the second principal component, subjects who scored positively started the jump with a force slightly above average and continued on the same trajectory with a force slightly above average during the ascent phase but a late peak force significantly below average during the descent phase. In summary, these players have a relatively moderate initial push-off compared to the other subjects sustaining their force output throughout the ascent phase without a significant drop in force but exhibiting a late peak force significantly below average.
+
+The third principal component figure, demonstrated a similar pattern to the first principal component; however, players who scored positively started with a force above average, experienced a dip in force during the early ascent phase, but then recovered and achieved force levels above the average during the middle to the latter part of the ascent. Additionally, they exhibited an early peak force slightly below average, indicating that while they didn't reach the highest force levels compared to all subjects, they still exhibited commendable force output at the peak of their vertical jumps.
+
+
+Lastly, in the fourth principal component, subjects who scored positive on this component started their jump with force barely above average; this force dipped slightly below average during the ascent phase but had an early peak force slightly above average. This means that when these players were crouched or bent before takeoff at the beginning of the jump, their initial force application was slightly above the average force level of all subjects. Their force output during the upward movement dipped relatively and deviated marginally from the average force levels of all subjects. Additionally, these players reached their maximum force output at an earlier point in their vertical jumps compared to the average of all subjects, and their peak force was slightly higher than the average peak force observed.
+
+The jump variations from the FPCA indicated subjects with two distinct characteristics or features; early and late peak force.
+
+## Functional Clustering
+To determince subgroups Subjects based on their Jump pattern we employ functional clustering methods and standard K-means clustering on the FPC scores
+```{r,include=FALSE}
+require(GGally)
+require(e1071)
+require(ggpubr)
+require(cowplot)
+library(fdacluster)
+library(funHDDC)
+```
+
+
+#FDA K-means
+```{r,include=FALSE}
+## Create an empty matrix 'time_mat' to store time values
+time_mat <- matrix(data = NA, nrow = 34, ncol = 300)
+
+# Set row names of 'time_mat' to match column names of 'Raw_Force'
+row.names(time_mat) <- colnames(Raw_Force)
+
+# Populate 'time_mat' with values from 1 to 300 for each row
+for (i in 1:nrow(time_mat)) {
+  time_mat[i,] <- rbind(c(1:300))
+}
+
+# Define a function 'time_norm2' for time normalization
+time_norm2 <- function(x) {
+  # Create an empty matrix 'Norm_tr' to store normalized values
+  Norm_tr <- matrix(data = NA, nrow = 34, ncol = 300)
+  
+  # Set row names of 'Norm_tr' to match column names of 'Raw_Force'
+  row.names(Norm_tr) <- colnames(Raw_Force)
+  
+  # Normalize each row of 'x' and store the results in 'Norm_tr'
+  for (i in 1:nrow(x)) {
+    Norm_tr[i,] <- (x[i,] - min(x[i,])) / (max(x[i,]) - min(x[i,]))
+  }
+  
+  return(Norm_tr)
+}
+
+# Apply the 'time_norm2' function to normalize 'time_mat' and store the result in 'T_R'
+T_R <- time_norm2(time_mat)
+
+```
+
+
+## Functional Clustering
+
+#FDA K-means
+In this FDA clustering algorithm, we facilitate the grouping of curves based on their phase and amplitude characteristics. The method employs various warping classes to register the curves along the time domain. However, it's noteworthy that in this specific project, we've opted for a no warping class approach. This decision was made due to the prior alignment of the initial curves, resulting in enhanced clarity and interpretability, particularly towards the end of the force curve.
+
+#Comparing different clustering solutions using FDA-kmeans
+```{r}
+caps<-compare_caps(x=T_R,y=Force_fd,n_clusters=1:6, clustering_method="kmeans", warping_class ="none",centroid_type = "mean",cluster_on_phase = FALSE)
+```
+
+#Plot the within sum of squares
+```{r}
+plot(
+  caps,
+  validation_criterion = c("wss", "silhouette"),
+  what = c("mean", "distribution"),
+)
+```
+The selection of K=2 is based on a subjective choice, primarily influenced by the observation of the first noticeable elbow point in the within-group sum of squares (WSS) curve.Using two cluster solutions we can visualize the two groups below,
+```{r}
+# Perform Functional Data Analysis K-Means clustering
+# - 'x' represents the data for time normalization
+# - 'y' represents the smoothed force curves
+# - 'n_clusters' specifies the number of clusters (2 in this case)
+# - 'warping_class' defines the warping class (in this case, "none" for no warping)
+# - 'cluster_on_phase' determines whether clustering is based on phase (set to FALSE)
+# - 'use_verbose' controls verbose output (set to FALSE for no verbosity)
+N.Kmeans.amp_cluster2 <- fdakmeans(
+  x = T_R,
+  y = Force_fd,
+  n_clusters = 2,
+  warping_class = "none",
+  cluster_on_phase = FALSE,
+  use_verbose = FALSE
+)
+
+# Plot the amplitude-based clusters obtained from FDA K-Means
+plot(N.Kmeans.amp_cluster2, type = 'amplitude')
+
+```
+
+
+## Standard K-Means Clustering on FPC scores
+In this second clustering strategy we extract the FPC scores and apply the standard K-means 
+#pc scores 
+```{r}
+# Extract the scores from the 'force.pcalist' object
+scores <- force.pcalist$scores
+
+# Rename the columns of the 'scores' matrix
+colnames(scores) <- c("pc1", "pc2", "pc3", "pc4")
+
+# Set row names of the 'scores' matrix to match column names of 'Raw_Force'
+row.names(scores) <- colnames(Raw_Force)
+
+# Calculate the correlation matrix of the scores
+correlation_matrix <- cor(scores)
+
+```
+
+```{r,include=TRUE}
+# Create an empty numeric vector to store the within-group sum of squares (WGSS)
+WGSS <- vector(mode = "numeric")
+
+# Get the number of rows (data points) in the 'scores' dataset
+n <- nrow(scores)
+
+# Calculate the WGSS for k = 1 (initial value)
+WGSS[1] <- (n - 1) * sum(apply(scores, 2, var))
+
+# Loop through different values of k from 2 to 10
+for (k in 2:10) {
+  # Calculate the WGSS for the current value of k using k-means clustering
+  # and store it in the 'WGSS' vector
+  WGSS[k] <- sum(kmeans(scores, centers = k, nstart = 20)$withinss)
+}
+
+# Create a ggplot object to visualize the WGSS values
+ggplot(data = as.data.frame(WGSS), aes(x = 1:10, y = WGSS)) +
+  xlab("k") +
+  ylab("Within-group sum of squares") +
+  theme_bw() +
+  geom_line() + 
+  geom_point()   
+```
+We can clearly observe an elbow at K=2, Using two cluster solutions we can visualize the two groups below
+```{r}
+# Set a random seed for reproducibility
+set.seed(4)
+
+# Perform k-means clustering with 2 centers on the 'FPC scores' 
+K_cl2 <- kmeans(scores, centers = 2, nstart = 20)
+
+# Plot the smoothed force curves (Force_fd) with colors based on the cluster assignments
+plot(Force_fd, col = K_cl2$cluster)
+
+```
+
+## Estimating the consistency of the cluster solutions from the two methods
+We utilize the Rand Index (RI) as an essential metric to evaluate the similarity between two data partitions. This evaluation helps us assess the effectiveness of both the FDA K-means  and K-means(on FPC scores) clustering strategies.
+
+## class Agreement between the functional Kmeans and kmeans algorithm clusters
+```{r,include=FALSE}
+tab<-table(K_cl2$cluster,N.Kmeans.amp_cluster2$memberships)
+classAgreement(tab)
+```
+The high scores indicate that the clustering results from the FDA K-means and K-means on FPC scores are in high agreement and they produce relatively compact, well-separated clusters
+
+# Are there significant difference between the groups observed?
+
+We employ the Functional T.test  to further investigate if they are significant differences among the clusters observed.
+
+
+# Group 1
+```{r}
+# Extract columns from the 'coefs' matrix where cluster membership is 1
+group_1 <- coefs[, which(N.Kmeans.amp_cluster2$memberships == 1)]
+
+# Define the time vector
+time <- 1:300
+
+# Get the column names (reps) of the 'group_1' matrix
+reps <- colnames(group_1)
+
+# Create a list for specifying the functional data object names (fdnames)
+fdname <- list('time' = time, 'reps' = reps, 'values' = 'value')
+
+# Create the functional data object for 'group_1'
+group1.fd <- fd(group_1, force_basis, fdnames = fdname)
+
+
+```
+
+# Group 2
+```{r}
+# Extract columns from the 'coefs' matrix where cluster membership is 2
+group_2 <- coefs[, which(N.Kmeans.amp_cluster2$memberships == 2)]
+
+# Define the time vector
+time <- 1:300
+
+# Get the column names (reps) of the 'group_2' matrix
+reps <- colnames(group_2)
+
+# Create a list for specifying the functional data object names (fdnames)
+fdname <- list('time' = time, 'reps' = reps, 'values' = 'value')
+
+# Create the functional data object for 'group_2' and store it as 'group2.fd'
+group2.fd <- fd(group_2, force_basis, fdnames = fdname)
+```
+
+
+# Visualizing the mean curves of both groups
+```{r}
+# Create a data frame 'Force.mean.dat' with columns 'x', 'mean.group1', and 'mean.group2'
+Force.mean.dat <- data.frame(
+  x = seq(0, 1, length = 300),
+  mean.group1 = eval.fd(seq(0, 1, length = 300), mean.fd(group1.fd)),
+  mean.group2 = eval.fd(seq(0, 1, length = 300), mean.fd(group2.fd))
+)
+
+# Rename the columns of 'Force.mean.dat'
+names(Force.mean.dat) <- c("x", "group_1", "group_2")
+
+# Create a ggplot to visualize the mean force curves for both groups
+ggplot(data = Force.mean.dat, aes(x = x, y = group_1)) +
+  geom_line(colour = "#009E73") +  # Line for 'group_1' with green color
+  geom_line(aes(x = x, y = group_2), colour = "#CC79A7") +  # Line for 'group_2' with pink color
+  xlab("Time") +
+  ylab("Mean Force") +
+  theme_bw()
+```
+
+## Functional t.test
+```{r}
+tres = tperm.fd(group1.fd,group2.fd, nperm = 200, q = 0.05) 
+
+```
+
+#
