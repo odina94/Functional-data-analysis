@@ -74,7 +74,7 @@ Raw_Force<-read.csv("Raw_Force.csv")
 
 
 #Force Curve of the 34 Subjects without Alignment 
-```{r, include=FALSE}
+```{r, echo=FALSE}
 Raw_F<-read.csv("Raw_Force.csv")
 Raw_F$SN<-c(1:553)
 
@@ -95,7 +95,7 @@ The plot displays the force profiles of 34 subjects, revealing their jump patter
 
 ## Choosing lambda the optimal smoothing parameter
 Firstly we extract and analyse the force profile of one subject in order to obtain the optimal smoothing parameter $\lambda$.
-```{r,include=FALSE}
+```{r,echo=FALSE}
 
 # Define the order of the B-spline basis
 norder <- 4
@@ -280,7 +280,7 @@ plot(force.pcalist)
 
 
 #Cumulative proportion of variability explained by the Pcs
-```{r,include=FALSE}
+```{r,echo=FALSE}
 
 cum.propvar<-cumsum(force.pcalist$varprop)
 data.frame(1:4,cum.propvar)
@@ -361,7 +361,7 @@ caps<-compare_caps(x=T_R,y=Force_fd,n_clusters=1:6, clustering_method="kmeans", 
 ```
 
 #Plotting the within sum of squares for selecting the no of clusters
-```{r,include=FALSE}
+```{r,echo=FALSE}
 plot(
   caps,
   validation_criterion = c("wss", "silhouette"),
@@ -410,7 +410,7 @@ correlation_matrix <- cor(scores)
 
 ```
 
-```{r,include=TRUE}
+```{r,echo=FALSE}
 # Create an empty numeric vector to store the within-group sum of squares (WGSS)
 WGSS <- vector(mode = "numeric")
 
@@ -452,7 +452,7 @@ plot(Force_fd, col = K_cl2$cluster)
 We utilize the Rand Index (RI) as an essential metric to evaluate the similarity between two data partitions. This evaluation helps us assess the effectiveness of both the FDA K-means  and K-means(on FPC scores) clustering strategies.
 
 ## class Agreement between the functional Kmeans and kmeans algorithm clusters
-```{r,include=FALSE}
+```{r,echo=FALSE}
 tab<-table(K_cl2$cluster,N.Kmeans.amp_cluster2$memberships)
 classAgreement(tab)
 ```
@@ -524,8 +524,8 @@ ggplot(data = Force.mean.dat, aes(x = x, y = group_1)) +
 ```
 
 ## Functional t.test
-```{r,include=FALSE}
+```{r,echo=FALSE}
 tres = tperm.fd(group1.fd,group2.fd, nperm = 200, q = 0.05) 
 
 ```
-There is a difference evident across the majority of locations.This differences can be seen at the crouch phase(time: 0.18 - 0.38), Ascent phase(time: 0.42 - 0.7), and Peak force(time: 0.84 - 0.92) .
+There is a difference evident across the majority of locations.This differences can be seen at the crouch phase(time: 0.18 - 0.34), Ascent phase(time: 0.42 - 0.72), and Peak force(time: 0.88 - 0.92) .
