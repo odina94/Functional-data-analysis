@@ -1,7 +1,6 @@
-# Functional-data-analysis
-
 # FDA Analysis of Rugby Player Vertical Jump Force Curves
-Project Overview
+
+# Project Overview
 This project focuses on the application of Functional Data Analysis (FDA) techniques to gain insights from force curves obtained from rugby players during vertical jump exercises on a force platform. The project encompasses various stages of data processing, analysis, and interpretation, utilizing advanced statistical methods.
 
 # Key Components
