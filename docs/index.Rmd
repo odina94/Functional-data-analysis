@@ -212,10 +212,11 @@ for (i in 1:ncol(Raw_Force)) {
   # Add the data frame to the coeff_list
   coeff_list[[i]] <- coeff_df
   
-  # Plot the smooth curve
-  plot(DF[, 1], DF[, 2], type = 'p', lwd = 0.00005, xlab = 'Time', ylab = 'Force',
-       main = paste0(colnames(Raw_Force[i])))
-  lines(force.pen.smooth$fd, col = 'red')
+  # Plot the smooth curve(Remove "#' below to see the plots)
+  #plot(DF[, 1], DF[, 2], type = 'p', lwd = 0.00005, xlab = 'Time', ylab = 'Force',
+       #main = paste0(colnames(Raw_Force[i])))
+  #lines(force.pen.smooth$fd, col = 'red')
+  
 }
 
 
@@ -529,3 +530,19 @@ tres = tperm.fd(group1.fd,group2.fd, nperm = 200, q = 0.05)
 
 ```
 There is a difference evident across the majority of locations.This differences can be seen at the crouch phase(time: 0.18 - 0.34), Ascent phase(time: 0.42 - 0.72), and Peak force(time: 0.88 - 0.92) .
+
+# Conclusion:
+In conclusion, employing FDA methods has proven instrumental in discerning and categorizing rugby players into two homogeneous groups based on their jump patterns, specifically analyzing the force curve. The nuanced insights derived from these jump patterns, distinguished by their unique time to peak force, offer invaluable information for performance coaches.
+
+Understanding the temporal dynamics of force exertion during jumps enables coaches to tailor training strategies with precision. By recognizing and capitalizing on the distinct characteristics within each group, performance coaches can design targeted and effective training regimens that address the specific needs and potential areas of improvement for each subgroup of players.
+
+Ultimately, the application of FDA not only enhances our understanding of the intricacies of jump patterns among rugby players but also empowers coaches to optimize training programs, fostering individualized and performance-driven approaches. This analytical approach marks a significant stride in elevating the efficacy of training strategies, ultimately contributing to the overall success and competitive edge of the rugby team.
+
+# Further Recommendation:
+Expanding the scope of this study holds great potential for a more comprehensive understanding of rugby players' performance dynamics. The exploration could be extended to include not only jump patterns' force curves but also delve into the velocity and acceleration curves. Analyzing these additional parameters would provide a holistic perspective on the players' biomechanical responses during jumps.
+
+Moreover, a deeper investigation into the overall factors influencing jump patterns, such as body mass and potentially other physiological variables, could yield critical insights. Understanding how these factors interplay with force, velocity, and acceleration could unveil underlying patterns and correlations, enriching the depth of our knowledge.
+
+By incorporating such multifaceted analyses, coaches and sports scientists can develop a more nuanced and personalized approach to training regimens. This broader perspective may uncover nuanced relationships between various biomechanical factors, paving the way for tailored interventions that address specific performance attributes and potentially mitigate injury risks.
+
+In essence, extending this study to encompass velocity, acceleration, and comprehensive factors influencing jump patterns adds layers of complexity to our analysis. This enriched understanding not only enhances the scientific rigor of our findings but also opens avenues for refining training methodologies to better meet the unique needs of individual rugby players.
