@@ -28,3 +28,8 @@ Statistical analyses provide evidence-based recommendations for optimizing perfo
 # How to Use This Repository
 Detailed documentation and code are provided to replicate the FDA analysis steps.
 The repository includes datasets, code scripts, and visualization tools for exploration
+
+## Explore the analysis:
+
+   - Open and run `index.rmd` in a R environment for a detailed walkthrough.
+   - View report directly on the GitHub Pages associated with this repository
